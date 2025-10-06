@@ -7,26 +7,15 @@
 ## 1) File layout (minimal upload)
 
 ```
-smallville_pp.py          # single-file Tkinter app (implements everything below)
-assets/
-  tiles/
-    ground.png wall.png road.png
-    cafe_floor.png home_floor.png office_floor.png store_floor.png
-    school_floor.png clinic_floor.png factory_floor.png park_grass.png
-    poi.png
-  props/
-    tree.png bench.png lamp.png sign.png desk.png bed.png shelf.png table.png stage.png
-  agents/
-    # 4-directional sprites with idle frames per facing
-    agent_blue_idle_down.png
-    agent_blue_idle_up.png
-    agent_blue_idle_left.png
-    agent_blue_idle_right.png
-    agent_blue_walk_down_0.png ... agent_blue_walk_down_3.png
-    agent_blue_walk_up_0.png   ... agent_blue_walk_up_3.png
-    agent_blue_walk_left_0.png ... agent_blue_walk_left_3.png
-    agent_blue_walk_right_0.png... agent_blue_walk_right_3.png
-    # repeat for green/orange/purple
+smallville_gui.py          # Tkinter app (implements everything below)
+run_smallville.py          # one-click launcher that installs requirements and starts the GUI
+requirements.txt           # Python dependencies (currently Pillow)
+Assets/
+  assets/
+    catalog/               # Kenney roguelike city & indoor tile atlases
+    tiles/                 # convenience tiles extracted from the packs
+    props/                 # props & vehicles (used for fallback sprites)
+    agents/                # Kenney Toon Characters (idle/run/walk poses)
 config.json                # optional knobs (see below)
 ```
 
@@ -87,6 +76,8 @@ config.json                # optional knobs (see below)
 * **Episodic** (daily 2–4 step fragments; γ≈0.95).
 * **Life planner** (weekly: move home, switch job, run for mayor) with cooldowns & budget checks.
 
+> **Prototype status:** the bundled Tkinter implementation realises this stack with a hybrid approach — a handcrafted utility scorer blended with an 8-neuron liquid micro-core (drawing on Liquid AI's grafting experiments) that modulates exploration/speech/satisfaction, plus a nightly reflective planner that refreshes each agent's life-plan snippets.
+
 ### 3.4 Safety layer (fixed, non-learnable)
 
 * **Action masks**: impassables, money can’t go negative, venue capacity/open hours.
@@ -140,6 +131,8 @@ agents/agent_blue_walk_right_0.png... _3.png
 
 **Guards:** character/episode budgets, domain allowlist, exponential backoff, strip HTML/markup, never store long quotations.
 
+> **Prototype status:** current build anchors reflections to curated facts from this brief, keeping offline play deterministic while leaving HTTP connectors as future work hooks.
+
 ---
 
 ## 6) Liquid Neural Core (per agent)
@@ -167,6 +160,16 @@ heads  = linear(h) → logits_action, speech_rate, explore_gain, satisfy_gain
 
 * **Within episode**: tiny RMSProp/Adam on heads only using reward = Δ(−composite need) + small social bonus − penalties.
 * **Across episodes**: elite selection copies **traits/persistence/heads** with small noise.
+
+> **Prototype status:** each agent carries a seeded, non-learning liquid core today; the `SimulationDirector` triggers civic "targeted evolution" sprints every 3 in-game days, nudging interests/civic needs to echo OpenEvolve/Liquid AI style search without runtime training.
+
+---
+
+## 7) Research threads reflected in this repo
+
+* [Generative Agents](https://github.com/joonspk-research/generative_agents) — memory stream, reflection thresholding, and daily journaling.
+* [OpenEvolve](https://github.com/codelion/openevolve) — episodic civic sprints for directed evolution of community roles.
+* Liquid AI research logs — Liquid core modulation ([LFM-1B math reasoning](https://www.liquid.ai/research/lfm-1b-math-can-small-models-be-concise-reasoners)), diffusion grafting, targeted evolution, and liquid/convolutional hybrids for edge deployment.
 
 ---
 
@@ -257,7 +260,7 @@ class Tutor:
 
 **M1 — Baseline run**
 
-* Load tiles/props/animated agents from the provided `assets/` placeholders; draw the grid; move agents with 4-dir animations; ensure interiors render.
+* Load tiles/props/animated agents from the provided `Assets/assets/` placeholders; draw the grid; move agents with 4-dir animations; ensure interiors render.
 
 **M2 — Psychology & utility planner**
 
@@ -298,7 +301,7 @@ class Tutor:
 
 **Task A — Asset intake + animation**
 
-> In `smallville_pp.py`, load PNGs from `assets/tiles|props|agents`. Implement an `Animation` helper that selects idle or walk frame based on velocity and facing (up/down/left/right) at `animations.fps` frames per second. Use Tk `PhotoImage` cache to avoid reloading. If sprites are missing, draw colored ovals as fallback.
+> In `smallville_gui.py`, load PNGs from `Assets/assets/tiles|props|agents`. Implement an `Animation` helper that selects idle or walk frame based on velocity and facing (up/down/left/right) at `animations.fps` frames per second. Use Tk `PhotoImage` cache to avoid reloading. If sprites are missing, draw colored ovals as fallback.
 
 **Task B — Planner & psychology**
 
@@ -320,7 +323,7 @@ class Tutor:
 
 ## 14) Notes on safety and sourcing
 
-* Maintain a curated `assets/` directory with consistent licensing (public-domain or original work) so the simulator can be shared without extra clearance.
+* Maintain a curated `Assets/assets/` directory with consistent licensing (public-domain or original work) so the simulator can be shared without extra clearance.
 * When integrating optional external adapters, ensure HTTP requests target allowlisted domains and respect per-day budgets to avoid rate-limit violations.
 * External text adapters should store *summaries/facts*, not long quotations; respect rate limits and keep a strict domain allowlist.
 
