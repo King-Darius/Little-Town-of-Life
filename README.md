@@ -1,4 +1,6 @@
 # Little Town of Life
+<img width="1246" height="840" alt="image" src="https://github.com/user-attachments/assets/a2e20f49-7604-44a0-9f75-398097f627f3" />
+
 
 This repository hosts design collateral for the "Smallville+++" Tkinter life simulation concept. The core deliverables are a comprehensive implementation brief compiled for GPT-based coding agents and a runnable Tkinter prototype that streams in the bundled Kenney assets.
 
