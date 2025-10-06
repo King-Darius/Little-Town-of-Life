@@ -8,8 +8,8 @@ This repository hosts design collateral for the "Smallville+++" Tkinter life sim
 
 ## Getting Started
 
-1. Review the implementation brief for asset download links (CC0) and the proposed file layout.
-2. Follow the milestone roadmap to incrementally build the simulator or delegate individual tasks to an agent using the supplied prompts.
+1. Review the implementation brief for the proposed project layout and simulation roadmap.
+2. Follow the milestone plan to incrementally build the simulator or delegate individual tasks to an agent using the supplied prompts.
 
 ## Licensing Notes
 

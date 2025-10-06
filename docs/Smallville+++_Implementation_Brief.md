@@ -4,36 +4,6 @@
 
 ---
 
-## 0) Zero-friction asset sources (CC0) — download these now
-
-These are **public-domain (CC0)** packs you can drop in as placeholders. They include interiors, exteriors, and **4-direction walking animations** so you’ll immediately see activity inside buildings.
-
-### Must-have tiles + characters
-
-* **Kenney — RPG Urban Pack** (16×16 exteriors/roads/buildings + small cast). License: **CC0**. Download page lists tile size and license. ([kenney.nl][1])
-* **Kenney — RPG Urban Kit (itch mirror)** (same content, mentions **“6 characters in four directions with walking animations.”**). Great for immediate walk cycles. ([itch.io][2])
-
-### Interiors & furniture
-
-* **Kenney — Roguelike Indoors** (large set of furniture & indoor tiles; CC0). Also mirrored on OpenGameArt. ([kenney.nl][3])
-
-### Industrial/warehouse/concrete floors & walls
-
-* **0x72 — 16×16 Dungeon Tileset** (CC0; explicitly “use for whatever you like”). Great for basements, factory backrooms, storage. ([itch.io][4])
-* **0x72 — Dungeon Tileset II** (newer recolor; CC0). ([itch.io][5])
-
-### Clinical props/floors (optional)
-
-* **OpenGameArt — Hospital room** (CC0; top-down bed + tiled floor). Useful for a clinic/hospital cell. ([OpenGameArt.org][6])
-
-### Kenney index (browse if you need complements)
-
-* Kenney asset browser (all **CC0**; 2D/3D/UI/audio). ([kenney.nl][7])
-
-> Why these? They’re CC0 (no attribution needed), stylistically consistent (16×16), and include **characters with 4-dir walk cycles** (from the Urban Kit) so your sim shows movement in/out/inside buildings from day one. ([itch.io][2])
-
----
-
 ## 1) File layout (minimal upload)
 
 ```
@@ -47,7 +17,7 @@ assets/
   props/
     tree.png bench.png lamp.png sign.png desk.png bed.png shelf.png table.png stage.png
   agents/
-    # From Kenney RPG Urban kit (4-dir walk cycles recommended)
+    # 4-directional sprites with idle frames per facing
     agent_blue_idle_down.png
     agent_blue_idle_up.png
     agent_blue_idle_left.png
@@ -60,16 +30,6 @@ assets/
 config.json                # optional knobs (see below)
 ```
 
-**How to fill the folder with placeholders:**
-
-* From **RPG Urban Pack/Kit**, export road/sidewalk/building-edge tiles → `tiles/road.png`, `tiles/ground.png`, `tiles/wall.png`, and cut the **character frames** into separate 16×16 PNGs named as above (4 frames per direction + idle). The itch page confirms **four directions with walking animations** are included. ([itch.io][2])
-* From **Roguelike Indoors**, cut tables, chairs, shelves, beds, desks → `props/*` and indoor floors to `tiles/*` (café/home/office/school/store). ([OpenGameArt.org][8])
-* From **0x72** tilesets, grab concrete/factory floors/walls → `tiles/factory_floor.png`, extra walls if needed. CC0, easy to slice. ([itch.io][4])
-* Clinic bed/floor: crop from **Hospital room** → `props/bed.png`, `tiles/clinic_floor.png`. ([OpenGameArt.org][6])
-
-(If you want me to name exact sheet coordinates from each pack, I can provide a cutting manifest; the Kenney packs also ship **separate sprites** folders which makes this trivial. ([itch.io][2]))
-
----
 
 ## 2) Config (optional)
 
@@ -154,7 +114,7 @@ agents/agent_blue_walk_left_0.png ... _3.png
 agents/agent_blue_walk_right_0.png... _3.png
 ```
 
-> From **Kenney RPG Urban Kit**, cut the 4-dir walking animations into the above files (16×16 each). The kit explicitly lists “characters in four directions with walking animations.” ([itch.io][2])
+> Slice any compatible 4-direction sprite sheet into the filenames above (16×16 each) so the renderer can alternate idle and walk frames without additional metadata.
 
 **Animation logic (Tkinter):**
 
@@ -173,10 +133,10 @@ agents/agent_blue_walk_right_0.png... _3.png
 
 ### 5.2 External knowledge adapters (optional, safe)
 
-* **Wikipedia** (TextExtracts `exintro`/`explaintext`) → brief notes that agents can reference. ([kenney.nl][9])
-* **Open Library** (subjects/search JSON) → pick study books/projects (metadata only). ([Sprite Fusion, Free 2D tilemap editor][10])
-* **Project Gutenberg** → public-domain excerpts for “deep reading” periods. ([OpenGameArt.org][6])
-* **Wikidata** (SPARQL) → civic facts (mayor role, term), cached per episode. ([OpenGameArt.org][8])
+* **Wikipedia** (TextExtracts `exintro`/`explaintext`) → brief notes that agents can reference.
+* **Open Library** (subjects/search JSON) → pick study books/projects (metadata only).
+* **Project Gutenberg** → public-domain excerpts for “deep reading” periods.
+* **Wikidata** (SPARQL) → civic facts (mayor role, term), cached per episode.
 
 **Guards:** character/episode budgets, domain allowlist, exponential backoff, strip HTML/markup, never store long quotations.
 
@@ -297,7 +257,7 @@ class Tutor:
 
 **M1 — Baseline run**
 
-* Load tiles/props/animated agents from the CC0 packs above; draw grid; move agents with 4-dir animations; ensure interiors render.
+* Load tiles/props/animated agents from the provided `assets/` placeholders; draw the grid; move agents with 4-dir animations; ensure interiors render.
 
 **M2 — Psychology & utility planner**
 
@@ -358,51 +318,13 @@ class Tutor:
 
 ---
 
-## 14) Exact URLs to download placeholders now
+## 14) Notes on safety and sourcing
 
-* Kenney **RPG Urban Pack** (16×16, CC0). Use for roads, exteriors, and characters: Download page lists tile size & CC0 license. ([kenney.nl][1])
-* Kenney **RPG Urban Kit** (itch mirror). **Includes 6 characters in four directions with walking animations** (use these for `agents/*_walk_*` frames). ([itch.io][2])
-* Kenney **Roguelike Indoors** (CC0 furniture/interior tiles): tables, chairs, shelves, sofas, kitchen. ([kenney.nl][3])
-* **0x72** 16×16 Dungeon Tileset (CC0) and **DungeonTileset II** (CC0) — concrete/industrial floors, walls, crates: great for factory/warehouse. ([itch.io][4])
-* **OpenGameArt** Hospital room (CC0) — clinic bed/floor. ([OpenGameArt.org][6])
-* Kenney all assets index (browse CC0 if you need more props or variants). ([kenney.nl][7])
+* Maintain a curated `assets/` directory with consistent licensing (public-domain or original work) so the simulator can be shared without extra clearance.
+* When integrating optional external adapters, ensure HTTP requests target allowlisted domains and respect per-day budgets to avoid rate-limit violations.
+* External text adapters should store *summaries/facts*, not long quotations; respect rate limits and keep a strict domain allowlist.
 
 ---
 
-## 15) Packaging
-
-* Put the downloaded PNGs in the `assets/` tree with the exact filenames above.
-* Zip the whole project as `smallville_plusplus.zip`:
-
-  ```
-  smallville_pp.py
-  assets/tiles/*.png
-  assets/props/*.png
-  assets/agents/*.png
-  (optional) config.json
-  ```
-* The app will run *even if* some assets are missing—fallbacks render—but you’ll get full animated life if the **RPG Urban Kit** character frames are present. ([itch.io][2])
-
----
-
-## 16) Notes on licensing & safety
-
-* Kenney and 0x72 packs are **CC0**; attribution not required (but appreciated). Pages explicitly state CC0 / “use for whatever you like.” ([kenney.nl][1])
-* OpenGameArt listings above are CC0; always double-check the page license badge before downloading alternates. ([OpenGameArt.org][6])
-* External text adapters read short excerpts; store *summaries/facts*, not long quotations; respect rate limits and keep a strict domain allowlist.
-
----
-
-If you want, I can also provide a **cutting manifest** for the Urban Kit and Roguelike Indoors (tile sheet coordinates → destination filename) so a script can slice all the frames into the exact `agents/*` names automatically.
-
-[1]: https://kenney.nl/assets/rpg-urban-pack?utm_source=chatgpt.com "RPG Urban Pack"
-[2]: https://kenney-assets.itch.io/rpg-urban-kit?utm_source=chatgpt.com "RPG Urban Kit by Kenney (Assets) - itch.io"
-[3]: https://kenney.nl/assets/roguelike-indoors?utm_source=chatgpt.com "Roguelike Indoors"
-[4]: https://0x72.itch.io/16x16-dungeon-tileset?utm_source=chatgpt.com "16x16 Dungeon Tileset by 0x72 - Itch.io"
-[5]: https://0x72.itch.io/dungeontileset-ii?utm_source=chatgpt.com "16x16 DungeonTileset II by 0x72 - itch.io"
-[6]: https://opengameart.org/content/hospital-room?utm_source=chatgpt.com "Hospital room"
-[7]: https://kenney.nl/assets?utm_source=chatgpt.com "Assets"
-[8]: https://opengameart.org/content/roguelike-indoor-pack?utm_source=chatgpt.com "Roguelike Indoor pack"
-[9]: https://kenney.nl/assets/tag%3Aroguelike?utm_source=chatgpt.com "Roguelike"
-[10]: https://www.spritefusion.com/tilesets/dungeon?utm_source=chatgpt.com "Dungeon Tileset"
+Maintain a living changelog for downstream coders so architectural updates and tuning decisions stay transparent and easy to diff.
 
