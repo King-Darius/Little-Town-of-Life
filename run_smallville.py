@@ -16,6 +16,12 @@ from pathlib import Path
 
 REQUIRED_PACKAGES = {
     "Pillow": "PIL",
+    "numpy": "numpy",
+    "huggingface_hub": "huggingface_hub",
+    "llama-cpp-python": "llama_cpp",
+    "torch": "torch",
+    "torchvision": "torchvision",
+    "sam2": "sam2",
 }
 
 
@@ -41,9 +47,25 @@ def ensure_dependencies() -> None:
 
 def main() -> None:
     ensure_dependencies()
+    ensure_models()
     from smallville_gui import main as run_gui
 
     run_gui()
+
+
+def ensure_models() -> None:
+    """Install and verify the bundled local LLMs."""
+
+    try:
+        from littletown.ai.model_manager import ensure_local_models
+    except Exception as exc:  # pragma: no cover - import guarding
+        print(f"Skipping local model bootstrap: {exc}")
+        return
+
+    statuses = ensure_local_models(auto_download=True)
+    for status in statuses:
+        note = f" — {status.message}" if status.message else ""
+        print(f"[models] {status.spec.name}: {status.state}{note}")
 
 
 if __name__ == "__main__":

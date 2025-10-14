@@ -1,0 +1,138 @@
+{
+  "name": "Little Town Placeholder Map",
+  "description": "Semantic affordance map curated from the illustrated reference town. The grid rows match the legacy map layout so existing gameplay stays compatible.",
+  "grid": {
+    "rows": [
+      "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT",
+      "TRRRRRRHHHHHHRRRRRRCCCCCCTTTTTT",
+      "TRRRRRRHHHHHHRRRRRRCCCCCCTTTTTT",
+      "TRRRRRRHHHHHHRRRRRRCCCCCCTTTTTT",
+      "TRRRRRRRRRRRRRRRRRRRRRRRRRTTTTT",
+      "TPPPPPPPPPPPPPPPPPPPPPPPPPPTTTT",
+      "TPPPPPPPPPPPPPPPPPPPPPPPPPPTTTT",
+      "TRRRRRRRRRRRRRRRRRRRRRRRRRTTTTT",
+      "TRRRRRROOOOOORRRRRRSSSSSSTTTTT",
+      "TRRRRRROOOOOORRRRRRSSSSSSTTTTT",
+      "TRRRRRROOOOOORRRRRRSSSSSSTTTTT",
+      "TRRRRRROOOOOORRRRRRSSSSSSTTTTT",
+      "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT",
+      "TLLLLLLLLLLLLTTTTTMMMMMMMIIIIII",
+      "TLLLLLLLLLLLLTTTTTMMMMMMMIIIIII",
+      "TLLLLLLLLLLLLTTTTTMMMMMMMIIIIII",
+      "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT",
+      "TTTTTTTTTTTTTAAATTTTTTTTTTTTTTT",
+      "TTTTTTTTTTTTTAAATTTTTTTTTTTTTTT",
+      "TTTTTTTTTTTTTAAATTTTTTTTTTTTTTT",
+      "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT",
+      "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT"
+    ]
+  },
+  "zones": [
+    {
+      "id": "central_residential",
+      "kind": "residential",
+      "name": "Central Residences",
+      "polygon": [[2, 1], [25, 1], [25, 7], [2, 7]],
+      "summary": "Townhouses, gardens, and home studios where most residents sleep and socialise.",
+      "preferred_tiles": ["residential", "park"]
+    },
+    {
+      "id": "civic_plaza",
+      "kind": "civic",
+      "name": "Civic Innovation Plaza",
+      "polygon": [[18, 1], [26, 1], [26, 5], [18, 5]],
+      "summary": "City hall, co-working atrium, and strategy loft for civic sprints.",
+      "preferred_tiles": ["civic", "ai_lab"]
+    },
+    {
+      "id": "riverside_green",
+      "kind": "park",
+      "name": "Riverside Greenway",
+      "polygon": [[1, 5], [15, 5], [15, 8], [1, 8]],
+      "summary": "Community park, outdoor stage, and farmer's market along the river.",
+      "preferred_tiles": ["park", "leisure"]
+    },
+    {
+      "id": "commerce_strip",
+      "kind": "commerce",
+      "name": "Downtown Market Row",
+      "polygon": [[8, 8], [26, 8], [26, 12], [8, 12]],
+      "summary": "Boutiques, cafes, remote-work lofts, and the metro station mezzanine.",
+      "preferred_tiles": ["commerce", "transport"]
+    },
+    {
+      "id": "makers_corner",
+      "kind": "leisure",
+      "name": "Makers Guild Quarter",
+      "polygon": [[1, 13], [14, 13], [14, 16], [1, 16]],
+      "summary": "Workshops, media labs, and evening clubs for creative residents.",
+      "preferred_tiles": ["leisure", "commerce"]
+    },
+    {
+      "id": "medical_row",
+      "kind": "health",
+      "name": "Wellness & Research Row",
+      "polygon": [[16, 13], [24, 13], [24, 16], [16, 16]],
+      "summary": "Clinic, spa, and health research pods.",
+      "preferred_tiles": ["health"]
+    },
+    {
+      "id": "industrial_belt",
+      "kind": "industry",
+      "name": "Innovation Rail Belt",
+      "polygon": [[24, 13], [32, 13], [32, 16], [24, 16]],
+      "summary": "Light industry, logistics, and fabrication depots near the rail yard.",
+      "preferred_tiles": ["industry", "transport"]
+    },
+    {
+      "id": "ai_campus",
+      "kind": "ai_lab",
+      "name": "Riverfront AI Campus",
+      "polygon": [[12, 17], [18, 17], [18, 20], [12, 20]],
+      "summary": "Research dome, robotics workshop, and LLM training hangar.",
+      "preferred_tiles": ["ai_lab", "commerce"]
+    }
+  ],
+  "navmesh": [
+    {
+      "id": "north_gate",
+      "position": [2, 0],
+      "connections": ["central_cross", "east_gate"]
+    },
+    {
+      "id": "west_gate",
+      "position": [0, 6],
+      "connections": ["central_cross"]
+    },
+    {
+      "id": "central_cross",
+      "position": [12, 7],
+      "connections": ["north_gate", "west_gate", "civic_entry", "south_gate"]
+    },
+    {
+      "id": "civic_entry",
+      "position": [21, 4],
+      "connections": ["central_cross", "east_gate", "innovation_lane"]
+    },
+    {
+      "id": "innovation_lane",
+      "position": [14, 17],
+      "connections": ["civic_entry", "ai_quad", "south_gate"]
+    },
+    {
+      "id": "ai_quad",
+      "position": [14, 18],
+      "connections": ["innovation_lane"]
+    },
+    {
+      "id": "south_gate",
+      "position": [12, 20],
+      "connections": ["central_cross", "innovation_lane"]
+    },
+    {
+      "id": "east_gate",
+      "position": [30, 8],
+      "connections": ["central_cross", "civic_entry"]
+    }
+  ]
+}

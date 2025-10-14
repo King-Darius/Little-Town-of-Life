@@ -21,7 +21,7 @@ from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
 import tkinter as tk
-from tkinter import ttk
+from tkinter import messagebox, ttk
 
 try:
     from PIL import Image, ImageTk
@@ -40,6 +40,51 @@ except ModuleNotFoundError as exc:  # pragma: no cover - handled in run_smallvil
 
 ROOT_DIR = Path(__file__).resolve().parent
 ASSET_ROOT = ROOT_DIR / "Assets" / "assets"
+MAP_ROOT = ROOT_DIR / "Assets" / "maps"
+MAP_LAYOUT = MAP_ROOT / "placeholder_map.json"
+
+
+def _resolve_map_assets() -> Tuple[Path, Path]:
+    """Determine which map artwork to analyse and the cache to pair with it."""
+
+    candidates = [
+        ("Test_Map.png", "Test_Map.sam2.json"),
+        ("placeholder_map.png", "placeholder_map.sam2.json"),
+    ]
+
+    for image_name, cache_name in candidates:
+        image_path = MAP_ROOT / image_name
+        if image_path.exists():
+            return image_path, MAP_ROOT / cache_name
+
+    # Default to the placeholder naming even if the file does not exist yet –
+    # the helper below may be able to procedurally generate it on demand.
+    return MAP_ROOT / "placeholder_map.png", MAP_ROOT / "placeholder_map.sam2.json"
+
+
+MAP_IMAGE, SAM_CACHE_PATH = _resolve_map_assets()
+
+try:
+    from littletown.spatial.placeholder_map_art import ensure_placeholder_image
+except Exception:  # pragma: no cover - helper not essential for core UI tests
+    ensure_placeholder_image = None  # type: ignore[assignment]
+else:
+    if MAP_IMAGE.name == "placeholder_map.png":
+        try:
+            ensure_placeholder_image(MAP_IMAGE, MAP_LAYOUT)
+        except Exception:
+            pass
+
+try:  # Optional runtime dependencies, gracefully handled if absent.
+    from littletown.ai.model_manager import LocalModelManager, ModelSpec
+except Exception:  # pragma: no cover - fallback when dependency missing
+    LocalModelManager = None  # type: ignore[assignment]
+    ModelSpec = None  # type: ignore[assignment]
+
+try:
+    from littletown.spatial.sam import SemanticAffordanceMap
+except Exception:  # pragma: no cover - fallback if SAM package missing
+    SemanticAffordanceMap = None  # type: ignore[assignment]
 
 
 def load_optional_config() -> Dict[str, object]:
@@ -261,27 +306,27 @@ class TownMap:
 
     layout: Sequence[str] = (
         "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT",
-        "TRRRRRRHHHHHHRRRRRRCCCCCCTTTTTT",
-        "TRRRRRRHHHHHHRRRRRRCCCCCCTTTTTT",
-        "TRRRRRRHHHHHHRRRRRRCCCCCCTTTTTT",
-        "TRRRRRRRRRRRRRRRRRRRRRRRRRTTTTT",
-        "TPPPPPPPPPPPPPPPPPPPPPPPPPPTTTT",
-        "TPPPPPPPPPPPPPPPPPPPPPPPPPPTTTT",
-        "TRRRRRRRRRRRRRRRRRRRRRRRRRTTTTT",
-        "TRRRRRROOOOOORRRRRRSSSSSSTTTTT",
-        "TRRRRRROOOOOORRRRRRSSSSSSTTTTT",
-        "TRRRRRROOOOOORRRRRRSSSSSSTTTTT",
-        "TRRRRRROOOOOORRRRRRSSSSSSTTTTT",
-        "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT",
-        "TLLLLLLLLLLLLTTTTTMMMMMMMIIIIII",
-        "TLLLLLLLLLLLLTTTTTMMMMMMMIIIIII",
-        "TLLLLLLLLLLLLTTTTTMMMMMMMIIIIII",
-        "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT",
-        "TTTTTTTTTTTTTAAATTTTTTTTTTTTTTT",
-        "TTTTTTTTTTTTTAAATTTTTTTTTTTTTTT",
-        "TTTTTTTTTTTTTAAATTTTTTTTTTTTTTT",
-        "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT",
-        "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT",
+        "TRRRRRRHHHHHHRRRRRRCCCCCCTTTTTTT",
+        "TRRRRRRHHHHHHRRRRRRCCCCCCTTTTTTT",
+        "TRRRRRRHHHHHHRRRRRRCCCCCCTTTTTTT",
+        "TRRRRRRRRRRRRRRRRRRRRRRRRRTTTTTT",
+        "TPPPPPPPPPPPPPPPPPPPPPPPPPPTTTTT",
+        "TPPPPPPPPPPPPPPPPPPPPPPPPPPTTTTT",
+        "TRRRRRRRRRRRRRRRRRRRRRRRRRTTTTTT",
+        "TRRRRRROOOOOORRRRRRSSSSSSTTTTTTT",
+        "TRRRRRROOOOOORRRRRRSSSSSSTTTTTTT",
+        "TRRRRRROOOOOORRRRRRSSSSSSTTTTTTT",
+        "TRRRRRROOOOOORRRRRRSSSSSSTTTTTTT",
+        "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT",
+        "TLLLLLLLLLLLLTTTTTMMMMMMMIIIIIIT",
+        "TLLLLLLLLLLLLTTTTTMMMMMMMIIIIIIT",
+        "TLLLLLLLLLLLLTTTTTMMMMMMMIIIIIIT",
+        "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT",
+        "TTTTTTTTTTTTTAAATTTTTTTTTTTTTTTT",
+        "TTTTTTTTTTTTTAAATTTTTTTTTTTTTTTT",
+        "TTTTTTTTTTTTTAAATTTTTTTTTTTTTTTT",
+        "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT",
+        "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT",
     )
 
     tile_map: Dict[str, TileName] = {
@@ -312,11 +357,43 @@ class TownMap:
     )
 
     def __init__(self) -> None:
-        self.height = len(self.layout)
-        self.width = len(self.layout[0]) if self.height else 0
+        self.semantic_map = None
+        layout_rows: Sequence[str] = self.layout
+        legacy_json = MAP_ROOT / "placeholder_map.json"
+        if SemanticAffordanceMap:
+            try:
+                if MAP_IMAGE.exists():
+                    self.semantic_map = SemanticAffordanceMap.from_image(
+                        MAP_IMAGE,
+                        cache_path=SAM_CACHE_PATH,
+                    )
+                elif SAM_CACHE_PATH.exists():
+                    self.semantic_map = SemanticAffordanceMap.from_file(SAM_CACHE_PATH)
+                elif legacy_json.exists():
+                    self.semantic_map = SemanticAffordanceMap.from_file(legacy_json)
+            except Exception as exc:  # pragma: no cover - runtime issues
+                print(f"[warning] Unable to load SAM2 layout: {exc}")
+                self.semantic_map = None
+                if legacy_json.exists():
+                    try:
+                        self.semantic_map = SemanticAffordanceMap.from_file(legacy_json)
+                    except Exception:
+                        pass
+
+        if self.semantic_map:
+            layout_rows = self.semantic_map.to_layout(self.layout)
+
+        self.height = len(layout_rows)
+        self.width = len(layout_rows[0]) if self.height else 0
         self.tiles: List[List[TileName]] = []
-        for row in self.layout:
+        for row in layout_rows:
             self.tiles.append([self.tile_map.get(ch, "park") for ch in row])
+
+        self._zone_lookup: Dict[Tuple[int, int], object] = {}
+        self.nav_nodes: Dict[str, object] = {}
+        if self.semantic_map:
+            self._zone_lookup = self.semantic_map.zone_lookup()
+            self.nav_nodes = self.semantic_map.node_lookup()
 
     def in_bounds(self, x: int, y: int) -> bool:
         return 0 <= x < self.width and 0 <= y < self.height
@@ -332,6 +409,15 @@ class TownMap:
             nx, ny = x + dx, y + dy
             if self.in_bounds(nx, ny) and self.is_walkable(nx, ny):
                 yield nx, ny
+
+    def zone_at(self, x: int, y: int):
+        return self._zone_lookup.get((x, y))
+
+    def nav_connections(self, node_id: str) -> Sequence[str]:
+        node = self.nav_nodes.get(node_id)
+        if not node:
+            return ()
+        return tuple(node.connections)
 
     def find_path(
         self, start: Tuple[int, int], goal: Tuple[int, int]
@@ -421,6 +507,65 @@ NEED_DECAY_RATES: Dict[str, float] = {
     "curiosity": 0.005,
     "civic_impact": 0.0035,
     "legacy": 0.0025,
+}
+
+ZONE_BEHAVIOURS: Dict[str, Dict[str, object]] = {
+    "residential": {
+        "satisfies": {"energy": 0.4, "hygiene": 0.25, "belonging": 0.2, "safety": 0.15},
+        "open_hours": (0, 24),
+        "tags": ("home", "rest"),
+    },
+    "commerce": {
+        "satisfies": {"hunger": 0.45, "thirst": 0.35, "belonging": 0.2, "fun": 0.15},
+        "open_hours": (6, 22),
+        "cost": 4.0,
+        "tags": ("food", "market"),
+    },
+    "civic": {
+        "satisfies": {"civic_impact": 0.3, "esteem": 0.2, "legacy": 0.1},
+        "open_hours": (8, 20),
+        "tags": ("civic", "leadership"),
+    },
+    "health": {
+        "satisfies": {"safety": 0.4, "energy": 0.2, "esteem": 0.1},
+        "open_hours": (7, 21),
+        "cost": 6.0,
+        "tags": ("health",),
+    },
+    "ai_lab": {
+        "satisfies": {"competence": 0.3, "curiosity": 0.25, "creativity": 0.2},
+        "open_hours": (9, 19),
+        "cost": 3.0,
+        "tags": ("coding", "research"),
+    },
+    "park": {
+        "satisfies": {"fun": 0.3, "belonging": 0.25, "creativity": 0.1},
+        "open_hours": (5, 23),
+        "tags": ("nature", "sports"),
+    },
+    "leisure": {
+        "satisfies": {"creativity": 0.3, "fun": 0.25, "autonomy": 0.2},
+        "open_hours": (10, 22),
+        "cost": 2.0,
+        "tags": ("art", "maker"),
+    },
+    "education": {
+        "satisfies": {"curiosity": 0.35, "competence": 0.25, "legacy": 0.15},
+        "open_hours": (8, 21),
+        "tags": ("learning", "research"),
+    },
+    "industry": {
+        "satisfies": {"money_pressure": 0.35, "competence": 0.2, "esteem": 0.15},
+        "open_hours": (7, 18),
+        "cost": -8.0,
+        "tags": ("career", "production"),
+    },
+    "transport": {
+        "satisfies": {"autonomy": 0.2, "competence": 0.1, "legacy": 0.05},
+        "open_hours": (0, 24),
+        "cost": 0.0,
+        "tags": ("transport", "rail"),
+    },
 }
 
 
@@ -1083,6 +1228,349 @@ class EventLog(ttk.Frame):
         self.text.configure(state=tk.DISABLED)
 
 
+class ModelSettingsDialog(tk.Toplevel):
+    """Modal dialog to configure downloadable language models."""
+
+    def __init__(self, master: tk.Widget, manager: "LocalModelManager") -> None:
+        super().__init__(master)
+        self.title("Model Settings")
+        self.transient(master.winfo_toplevel())
+        self.resizable(True, True)
+        self.geometry("640x520")
+        self.manager = manager
+        self.spec_vars: Dict[str, tk.BooleanVar] = {}
+        self.status_var = tk.StringVar(value="Select the models you would like available locally.")
+
+        container = ttk.Frame(self)
+        container.pack(fill=tk.BOTH, expand=True, padx=12, pady=12)
+
+        info = ttk.Label(
+            container,
+            text=(
+                "The launcher will download selected models into Assets/models. "
+                "Optional community builds from Mistral, xAI contributors, and "
+                "OpenAI-inspired projects can be enabled here."
+            ),
+            wraplength=600,
+            justify=tk.LEFT,
+        )
+        info.pack(fill=tk.X, pady=(0, 8))
+
+        self.model_frame = ttk.Frame(container)
+        self.model_frame.pack(fill=tk.BOTH, expand=True)
+
+        scroll_canvas = tk.Canvas(self.model_frame, highlightthickness=0)
+        scrollbar = ttk.Scrollbar(self.model_frame, orient=tk.VERTICAL, command=scroll_canvas.yview)
+        self._list_frame = ttk.Frame(scroll_canvas)
+        self._list_frame.bind(
+            "<Configure>",
+            lambda _event: scroll_canvas.configure(scrollregion=scroll_canvas.bbox("all")),
+        )
+        scroll_canvas.create_window((0, 0), window=self._list_frame, anchor="nw")
+        scroll_canvas.configure(yscrollcommand=scrollbar.set)
+        scroll_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+        status_bar = ttk.Label(container, textvariable=self.status_var)
+        status_bar.pack(fill=tk.X, pady=(8, 4))
+
+        button_row = ttk.Frame(container)
+        button_row.pack(fill=tk.X, pady=(0, 8))
+
+        ttk.Button(button_row, text="Refresh", command=self._refresh_models).pack(side=tk.LEFT)
+        ttk.Button(button_row, text="Download Selected", command=self._download_selected).pack(
+            side=tk.RIGHT
+        )
+        ttk.Button(button_row, text="Close", command=self.destroy).pack(side=tk.RIGHT, padx=(0, 6))
+
+        custom_frame = ttk.LabelFrame(container, text="Add Custom Model")
+        custom_frame.pack(fill=tk.X, pady=(0, 4))
+
+        self.custom_name = tk.StringVar()
+        self.custom_repo = tk.StringVar()
+        self.custom_filename = tk.StringVar()
+        self.custom_license = tk.StringVar(value="Custom")
+        self.custom_desc = tk.StringVar()
+        self.custom_sha = tk.StringVar()
+
+        ttk.Label(custom_frame, text="Display name").grid(row=0, column=0, sticky="w", padx=4, pady=2)
+        ttk.Entry(custom_frame, textvariable=self.custom_name, width=28).grid(
+            row=0, column=1, sticky="ew", padx=4, pady=2
+        )
+        ttk.Label(custom_frame, text="Repo ID").grid(row=0, column=2, sticky="w", padx=4, pady=2)
+        ttk.Entry(custom_frame, textvariable=self.custom_repo, width=28).grid(
+            row=0, column=3, sticky="ew", padx=4, pady=2
+        )
+        ttk.Label(custom_frame, text="Filename").grid(row=1, column=0, sticky="w", padx=4, pady=2)
+        ttk.Entry(custom_frame, textvariable=self.custom_filename, width=28).grid(
+            row=1, column=1, sticky="ew", padx=4, pady=2
+        )
+        ttk.Label(custom_frame, text="License").grid(row=1, column=2, sticky="w", padx=4, pady=2)
+        ttk.Entry(custom_frame, textvariable=self.custom_license, width=28).grid(
+            row=1, column=3, sticky="ew", padx=4, pady=2
+        )
+        ttk.Label(custom_frame, text="Description").grid(row=2, column=0, sticky="w", padx=4, pady=2)
+        ttk.Entry(custom_frame, textvariable=self.custom_desc).grid(
+            row=2, column=1, columnspan=2, sticky="ew", padx=4, pady=2
+        )
+        ttk.Label(custom_frame, text="SHA-256 (optional)").grid(
+            row=2, column=3, sticky="w", padx=4, pady=2
+        )
+        ttk.Entry(custom_frame, textvariable=self.custom_sha, width=40).grid(
+            row=3, column=0, columnspan=3, sticky="ew", padx=4, pady=(0, 4)
+        )
+        ttk.Button(custom_frame, text="Add", command=self._add_custom_model).grid(
+            row=3, column=3, sticky="e", padx=4, pady=(0, 4)
+        )
+
+        custom_frame.columnconfigure(1, weight=1)
+        custom_frame.columnconfigure(3, weight=1)
+
+        self.bind("<Escape>", lambda _event: self.destroy())
+        self._refresh_models()
+
+    def _refresh_models(self) -> None:
+        for child in self._list_frame.winfo_children():
+            child.destroy()
+
+        statuses = {status.spec.filename: status for status in self.manager.discover()}
+        specs = self.manager.available_models(include_optional=True)
+        custom_ids = {spec.filename for spec in self.manager.custom_models()}
+
+        for spec in specs:
+            header = ttk.Frame(self._list_frame)
+            header.pack(fill=tk.X, pady=(2, 0))
+
+            status = statuses.get(spec.filename)
+            installed = status and status.state in {"available", "downloaded"}
+            var = self.spec_vars.get(spec.filename)
+            if var is None:
+                var = tk.BooleanVar(value=bool(installed))
+                self.spec_vars[spec.filename] = var
+            else:
+                var.set(bool(installed))
+
+            ttk.Checkbutton(header, text=spec.name, variable=var).pack(side=tk.LEFT)
+
+            meta = f"{spec.provider} • {spec.license}".strip(" •")
+            ttk.Label(header, text=meta).pack(side=tk.LEFT, padx=6)
+
+            detail_text = ""
+            if status:
+                if status.path:
+                    detail_text = status.path.name
+                elif status.message:
+                    detail_text = status.message
+                else:
+                    detail_text = status.state
+            else:
+                detail_text = "Not discovered"
+
+            tk.Label(header, text=detail_text, foreground="#4a4a4a").pack(side=tk.RIGHT)
+
+            if spec.filename in custom_ids:
+                ttk.Button(
+                    header,
+                    text="Remove",
+                    command=lambda fn=spec.filename: self._remove_custom(fn),
+                ).pack(side=tk.RIGHT, padx=(0, 6))
+
+            ttk.Label(
+                self._list_frame,
+                text=spec.description,
+                wraplength=560,
+                justify=tk.LEFT,
+            ).pack(fill=tk.X, padx=(28, 0), pady=(0, 4))
+
+    def _download_selected(self) -> None:
+        if not self.spec_vars:
+            self.status_var.set("No models selected.")
+            return
+
+        selection: List[ModelSpec] = []
+        available = {spec.filename: spec for spec in self.manager.available_models(include_optional=True)}
+        for filename, var in self.spec_vars.items():
+            if var.get() and filename in available:
+                selection.append(available[filename])
+
+        if not selection:
+            messagebox.showinfo("Model Settings", "Select at least one model to download.")
+            return
+
+        try:
+            statuses = self.manager.ensure_models(selection, auto_download=True)
+        except Exception as exc:  # pragma: no cover - UI level safeguard
+            messagebox.showerror("Model download failed", str(exc))
+            return
+
+        successful = [status for status in statuses if status.state in {"downloaded", "available"}]
+        if successful:
+            self.status_var.set(f"Updated {len(successful)} model(s).")
+        else:
+            self.status_var.set("No models were downloaded. Check the log for details.")
+        self._refresh_models()
+
+    def _add_custom_model(self) -> None:
+        if ModelSpec is None:
+            messagebox.showerror("Unavailable", "Model manager support is not installed.")
+            return
+
+        name = self.custom_name.get().strip()
+        repo = self.custom_repo.get().strip()
+        filename = self.custom_filename.get().strip()
+        license_text = self.custom_license.get().strip() or "Custom"
+        description = self.custom_desc.get().strip() or "User supplied community model."
+        sha = self.custom_sha.get().strip() or None
+
+        if not (name and repo and filename):
+            messagebox.showerror(
+                "Missing information",
+                "Please provide a display name, Hugging Face repo ID, and filename.",
+            )
+            return
+
+        spec = ModelSpec(
+            name=name,
+            repo_id=repo,
+            filename=filename,
+            license=license_text,
+            description=description,
+            default=False,
+            sha256=sha,
+            provider="custom",
+        )
+        self.manager.register_custom_model(spec)
+        self.spec_vars[spec.filename] = tk.BooleanVar(value=False)
+        self.custom_name.set("")
+        self.custom_repo.set("")
+        self.custom_filename.set("")
+        self.custom_desc.set("")
+        self.custom_sha.set("")
+        self.status_var.set(f"Added {spec.name}. Select it above to download.")
+        self._refresh_models()
+
+    def _remove_custom(self, filename: str) -> None:
+        self.manager.remove_custom_model(filename)
+        if filename in self.spec_vars:
+            del self.spec_vars[filename]
+        self.status_var.set("Removed custom entry.")
+        self._refresh_models()
+
+
+class ModelStatusPanel(ttk.Frame):
+    """Surface system bootstrap information (models + SAM zones)."""
+
+    def __init__(
+        self,
+        master: tk.Widget,
+        *,
+        world: TownMap,
+        model_manager: Optional["LocalModelManager"],
+        **kwargs,
+    ) -> None:
+        super().__init__(master, **kwargs)
+        self.world = world
+        self.model_manager = model_manager
+
+        self.tree = ttk.Treeview(
+            self,
+            columns=("state", "details"),
+            show="tree headings",
+            height=12,
+        )
+        self.tree.heading("#0", text="Component")
+        self.tree.heading("state", text="State")
+        self.tree.heading("details", text="Details")
+        self.tree.column("#0", width=200, stretch=False)
+        self.tree.column("state", width=90, anchor=tk.W, stretch=False)
+        self.tree.column("details", width=280, anchor=tk.W)
+        self.tree.pack(fill=tk.BOTH, expand=True, padx=4, pady=4)
+
+        if self.model_manager:
+            button_row = ttk.Frame(self)
+            button_row.pack(side=tk.BOTTOM, fill=tk.X, padx=4, pady=(0, 4))
+            ttk.Button(button_row, text="Model Settings…", command=self._open_settings).pack(
+                side=tk.RIGHT
+            )
+
+        self.refresh()
+
+    def refresh(self) -> None:
+        self.tree.delete(*self.tree.get_children())
+
+        model_parent = self.tree.insert("", tk.END, text="Local Models", values=("", ""))
+        if self.model_manager:
+            for status in self.model_manager.discover():
+                detail = status.message or (
+                    status.path.name if status.path else "Pending download"
+                )
+                self.tree.insert(
+                    model_parent,
+                    tk.END,
+                    text=status.spec.name,
+                    values=(status.state, detail),
+                )
+        else:
+            self.tree.insert(
+                model_parent,
+                tk.END,
+                text="Model manager unavailable",
+                values=(
+                    "disabled",
+                    "Launch via run_smallville.py to install optional dependencies.",
+                ),
+            )
+        self.tree.item(model_parent, open=True)
+
+        zone_parent = self.tree.insert("", tk.END, text="SAM Zones", values=("", ""))
+        sam = getattr(self.world, "semantic_map", None)
+        if sam and sam.zones:
+            for zone in sam.zones:
+                summary = zone.summary
+                if len(summary) > 60:
+                    summary = summary[:57] + "…"
+                self.tree.insert(
+                    zone_parent,
+                    tk.END,
+                    text=zone.name,
+                    values=(zone.kind, summary),
+                )
+        else:
+            self.tree.insert(
+                zone_parent,
+                tk.END,
+                text="No semantic map detected",
+                values=("missing", "Add Assets/maps/placeholder_map.json"),
+            )
+        self.tree.item(zone_parent, open=True)
+
+        if sam and sam.nodes:
+            nav_parent = self.tree.insert("", tk.END, text="Navigation Nodes", values=("", ""))
+            for node in sam.nodes:
+                coord = f"({node.position[0]}, {node.position[1]})"
+                connections = ", ".join(node.connections)
+                if len(connections) > 40:
+                    connections = connections[:37] + "…"
+                self.tree.insert(
+                    nav_parent,
+                    tk.END,
+                    text=node.id,
+                    values=(coord, connections or "No links"),
+                )
+            self.tree.item(nav_parent, open=False)
+
+    def _open_settings(self) -> None:
+        if not self.model_manager:
+            messagebox.showinfo(
+                "Model Settings",
+                "The optional model manager is unavailable in this environment.",
+            )
+            return
+
+        dialog = ModelSettingsDialog(self, self.model_manager)
+        self.wait_window(dialog)
+        self.refresh()
+
 class ControlPanel(ttk.Frame):
     def __init__(self, master: tk.Widget, simulation: Simulation, **kwargs) -> None:
         super().__init__(master, **kwargs)
@@ -1134,10 +1622,18 @@ class SmallvilleApp(tk.Tk):
         self.assets = AssetManager(ASSET_ROOT, self.cell_size)
         self.world = TownMap()
 
+        if LocalModelManager:
+            try:
+                self.model_manager = LocalModelManager()
+            except Exception:  # pragma: no cover - defensive guard
+                self.model_manager = None
+        else:
+            self.model_manager = None
+
         config = load_optional_config()
         agent_count = int(config.get("init_agents", 8))
 
-        self.pois = create_default_pois()
+        self.pois = create_default_pois(self.world)
         knowledge = KnowledgeBase()
         agents = create_agents(
             agent_count,
@@ -1157,8 +1653,12 @@ class SmallvilleApp(tk.Tk):
         self.info_tabs = ttk.Notebook(self)
         self.agent_panel = AgentPanel(self.info_tabs, simulation=self.simulation)
         self.memory_panel = MemoryPanel(self.info_tabs, simulation=self.simulation)
+        self.system_panel = ModelStatusPanel(
+            self.info_tabs, world=self.world, model_manager=self.model_manager
+        )
         self.info_tabs.add(self.agent_panel, text="Agents")
         self.info_tabs.add(self.memory_panel, text="Memories")
+        self.info_tabs.add(self.system_panel, text="Systems")
         self.info_tabs.grid(row=0, column=1, sticky="nsew")
 
         self.event_log = EventLog(self)
@@ -1221,6 +1721,8 @@ class SmallvilleApp(tk.Tk):
         self._render_agents()
         self.agent_panel.refresh()
         self.memory_panel.refresh()
+        if hasattr(self, "system_panel"):
+            self.system_panel.refresh()
         self.controls.clock_var.set(
             f"Day {self.simulation.day:02d} • Hour {self.simulation.hour:02d} — Tick {self.simulation.tick_count}"
         )
@@ -1246,151 +1748,191 @@ class SmallvilleApp(tk.Tk):
                 self.canvas.itemconfigure(item, image=frame)
 
 
-def create_default_pois() -> List[PointOfInterest]:
-    """Convenience function describing the important venues in town."""
+def _polygon_centroid(polygon: Sequence[Tuple[float, float]]) -> Tuple[int, int]:
+    if not polygon:
+        return (0, 0)
+    xs = [p[0] for p in polygon]
+    ys = [p[1] for p in polygon]
+    cx = sum(xs) / len(xs)
+    cy = sum(ys) / len(ys)
+    return int(round(cx)), int(round(cy))
 
-    return [
-        PointOfInterest(
-            name="Sunrise Homes",
-            kind="residential",
-            xy=(6, 2),
-            satisfies={
-                "energy": 0.4,
-                "hygiene": 0.25,
-                "belonging": 0.2,
-                "safety": 0.15,
-            },
-            open_hours=(0, 24),
-            tags=("home", "rest"),
-        ),
-        PointOfInterest(
-            name="Bluebird Cafe",
-            kind="commerce",
-            xy=(20, 8),
-            satisfies={
-                "hunger": 0.45,
-                "thirst": 0.35,
-                "belonging": 0.2,
-                "fun": 0.15,
-            },
-            open_hours=(6, 22),
-            cost=4.0,
-            tags=("food", "music"),
-        ),
-        PointOfInterest(
-            name="Civic Hall",
-            kind="civic",
-            xy=(20, 2),
-            satisfies={
-                "civic_impact": 0.3,
-                "esteem": 0.2,
-                "legacy": 0.1,
-            },
-            open_hours=(8, 20),
-            tags=("civic", "leadership"),
-        ),
-        PointOfInterest(
-            name="Wellness Clinic",
-            kind="health",
-            xy=(25, 14),
-            satisfies={
-                "safety": 0.4,
-                "energy": 0.2,
-                "esteem": 0.1,
-            },
-            open_hours=(7, 21),
-            cost=6.0,
-            tags=("health",),
-        ),
-        PointOfInterest(
-            name="Innovator Lab",
-            kind="ai_lab",
-            xy=(14, 17),
-            satisfies={
-                "competence": 0.3,
-                "curiosity": 0.25,
-                "creativity": 0.2,
-            },
-            open_hours=(9, 19),
-            cost=3.0,
-            tags=("coding", "research"),
-        ),
-        PointOfInterest(
-            name="Riverside Park",
-            kind="park",
-            xy=(5, 6),
-            satisfies={
-                "fun": 0.3,
-                "belonging": 0.25,
-                "creativity": 0.1,
-            },
-            open_hours=(5, 23),
-            tags=("nature", "sports"),
-        ),
-        PointOfInterest(
-            name="Downtown Offices",
-            kind="commerce",
-            xy=(12, 8),
-            satisfies={
-                "money_pressure": 0.35,
-                "competence": 0.2,
-                "esteem": 0.15,
-            },
-            open_hours=(7, 18),
-            cost=-8.0,
-            tags=("career", "coding"),
-        ),
-        PointOfInterest(
-            name="Makers Guild",
-            kind="leisure",
-            xy=(2, 13),
-            satisfies={
-                "creativity": 0.3,
-                "fun": 0.25,
-                "autonomy": 0.2,
-            },
-            open_hours=(10, 22),
-            cost=2.0,
-            tags=("art", "maker"),
-        ),
+
+def _pois_from_semantic_map(world: TownMap) -> List[PointOfInterest]:
+    sam = getattr(world, "semantic_map", None)
+    if not sam:
+        return []
+
+    pois: List[PointOfInterest] = []
+    for zone in sam.zones:
+        template = ZONE_BEHAVIOURS.get(zone.kind)
+        if not template:
+            continue
+        cx, cy = _polygon_centroid(zone.polygon)
+        cx = max(0, min(world.width - 1, cx))
+        cy = max(0, min(world.height - 1, cy))
+        satisfies = dict(template["satisfies"])
+        pois.append(
+            PointOfInterest(
+                name=zone.name,
+                kind=zone.kind,
+                xy=(cx, cy),
+                satisfies=satisfies,
+                open_hours=template.get("open_hours", (6, 22)),
+                cost=float(template.get("cost", 0.0)),
+                tags=tuple(template.get("tags", ())),
+            )
+        )
+    return pois
+
+
+def _ensure_transport_poi(pois: List[PointOfInterest], world: Optional[TownMap]) -> None:
+    if any(poi.kind == "transport" for poi in pois):
+        return
+    template = ZONE_BEHAVIOURS["transport"]
+    xy = (2, 0)
+    if world and getattr(world, "nav_nodes", None):
+        node = world.nav_nodes.get("north_gate")  # type: ignore[index]
+        if node is None and world.nav_nodes:
+            node = next(iter(world.nav_nodes.values()))
+        if node:
+            xy = tuple(node.position)  # type: ignore[assignment]
+    pois.append(
         PointOfInterest(
             name="Metro Hub",
             kind="transport",
-            xy=(2, 0),
-            satisfies={
-                "belonging": 0.15,
-                "autonomy": 0.2,
-                "curiosity": 0.1,
-            },
-            open_hours=(0, 24),
-            tags=("travel", "community"),
-        ),
-        PointOfInterest(
-            name="Aurora Studio",
-            kind="leisure",
-            xy=(9, 15),
-            satisfies={
-                "creativity": 0.35,
-                "legacy": 0.2,
-                "esteem": 0.2,
-            },
-            open_hours=(11, 23),
-            cost=5.0,
-            tags=("art", "music"),
-        ),
-        PointOfInterest(
-            name="Community Library",
-            kind="education",
-            xy=(17, 4),
-            satisfies={
-                "curiosity": 0.35,
-                "competence": 0.25,
-                "legacy": 0.15,
-            },
-            open_hours=(8, 21),
-            tags=("writing", "research"),
-        ),
+            xy=(int(xy[0]), int(xy[1])),
+            satisfies=dict(template["satisfies"]),
+            open_hours=template.get("open_hours", (0, 24)),
+            cost=float(template.get("cost", 0.0)),
+            tags=tuple(template.get("tags", ())),
+        )
+    )
+
+
+def create_default_pois(world: Optional[TownMap] = None) -> List[PointOfInterest]:
+    """Create the town's key venues, preferring SAM metadata when present."""
+
+    pois: List[PointOfInterest] = []
+    if world is not None:
+        pois = _pois_from_semantic_map(world)
+        if pois:
+            _ensure_transport_poi(pois, world)
+            return pois
+
+    fallback_specs = [
+        {
+            "name": "Sunrise Homes",
+            "kind": "residential",
+            "xy": (6, 2),
+            "satisfies": {"energy": 0.4, "hygiene": 0.25, "belonging": 0.2, "safety": 0.15},
+            "open_hours": (0, 24),
+            "tags": ("home", "rest"),
+        },
+        {
+            "name": "Bluebird Cafe",
+            "kind": "commerce",
+            "xy": (20, 8),
+            "satisfies": {"hunger": 0.45, "thirst": 0.35, "belonging": 0.2, "fun": 0.15},
+            "open_hours": (6, 22),
+            "cost": 4.0,
+            "tags": ("food", "music"),
+        },
+        {
+            "name": "Civic Hall",
+            "kind": "civic",
+            "xy": (20, 2),
+            "satisfies": {"civic_impact": 0.3, "esteem": 0.2, "legacy": 0.1},
+            "open_hours": (8, 20),
+            "tags": ("civic", "leadership"),
+        },
+        {
+            "name": "Wellness Clinic",
+            "kind": "health",
+            "xy": (25, 14),
+            "satisfies": {"safety": 0.4, "energy": 0.2, "esteem": 0.1},
+            "open_hours": (7, 21),
+            "cost": 6.0,
+            "tags": ("health",),
+        },
+        {
+            "name": "Innovator Lab",
+            "kind": "ai_lab",
+            "xy": (14, 17),
+            "satisfies": {"competence": 0.3, "curiosity": 0.25, "creativity": 0.2},
+            "open_hours": (9, 19),
+            "cost": 3.0,
+            "tags": ("coding", "research"),
+        },
+        {
+            "name": "Riverside Park",
+            "kind": "park",
+            "xy": (5, 6),
+            "satisfies": {"fun": 0.3, "belonging": 0.25, "creativity": 0.1},
+            "open_hours": (5, 23),
+            "tags": ("nature", "sports"),
+        },
+        {
+            "name": "Downtown Offices",
+            "kind": "commerce",
+            "xy": (12, 8),
+            "satisfies": {"money_pressure": 0.35, "competence": 0.2, "esteem": 0.15},
+            "open_hours": (7, 18),
+            "cost": -8.0,
+            "tags": ("career", "coding"),
+        },
+        {
+            "name": "Makers Guild",
+            "kind": "leisure",
+            "xy": (2, 13),
+            "satisfies": {"creativity": 0.3, "fun": 0.25, "autonomy": 0.2},
+            "open_hours": (10, 22),
+            "cost": 2.0,
+            "tags": ("art", "maker"),
+        },
+        {
+            "name": "Metro Hub",
+            "kind": "transport",
+            "xy": (2, 0),
+            "satisfies": {"belonging": 0.15, "autonomy": 0.2, "curiosity": 0.1},
+            "open_hours": (0, 24),
+            "tags": ("travel", "community"),
+        },
+        {
+            "name": "Aurora Studio",
+            "kind": "leisure",
+            "xy": (9, 15),
+            "satisfies": {"creativity": 0.35, "legacy": 0.2, "esteem": 0.2},
+            "open_hours": (11, 23),
+            "cost": 5.0,
+            "tags": ("art", "music"),
+        },
+        {
+            "name": "Community Library",
+            "kind": "education",
+            "xy": (17, 4),
+            "satisfies": {"curiosity": 0.35, "competence": 0.25, "legacy": 0.15},
+            "open_hours": (8, 21),
+            "tags": ("writing", "research"),
+        },
     ]
+
+    fallback: List[PointOfInterest] = []
+    for spec in fallback_specs:
+        fallback.append(
+            PointOfInterest(
+                name=spec["name"],
+                kind=spec["kind"],
+                xy=spec["xy"],
+                satisfies=dict(spec["satisfies"]),
+                open_hours=spec.get("open_hours", (6, 22)),
+                cost=float(spec.get("cost", 0.0)),
+                tags=tuple(spec.get("tags", ())),
+            )
+        )
+
+    return fallback
+
 
 
 def create_agents(
