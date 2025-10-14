@@ -1000,6 +1000,67 @@ class AgentPanel(ttk.Frame):
             self.tree.item(parent, open=True)
 
 
+class MemoryPanel(ttk.Frame):
+    """Interactive view into an agent's generative memory stream."""
+
+    def __init__(self, master: tk.Widget, *, simulation: Simulation, **kwargs) -> None:
+        super().__init__(master, **kwargs)
+        self.simulation = simulation
+        self._known_agents: List[str] = []
+
+        selector_row = ttk.Frame(self)
+        selector_row.pack(fill=tk.X, padx=4, pady=4)
+
+        ttk.Label(selector_row, text="Agent").pack(side=tk.LEFT)
+        self.agent_var = tk.StringVar()
+        self.selector = ttk.Combobox(
+            selector_row,
+            textvariable=self.agent_var,
+            state="readonly",
+            width=28,
+        )
+        self.selector.pack(side=tk.LEFT, padx=6)
+        self.selector.bind("<<ComboboxSelected>>", lambda _event: self._render_memories())
+
+        self.memory_text = tk.Text(self, height=18, wrap=tk.WORD, state=tk.DISABLED)
+        self.memory_text.pack(fill=tk.BOTH, expand=True, padx=4, pady=(0, 4))
+
+    def _selected_agent(self) -> Optional[Agent]:
+        selected = self.agent_var.get()
+        for agent in self.simulation.agents:
+            if agent.name == selected:
+                return agent
+        return None
+
+    def _render_memories(self) -> None:
+        agent = self._selected_agent()
+        self.memory_text.configure(state=tk.NORMAL)
+        self.memory_text.delete("1.0", tk.END)
+        if not agent:
+            self.memory_text.insert(tk.END, "Select an agent to review their journal entries.")
+        else:
+            recent = agent.memory.recent(12)
+            if not recent:
+                self.memory_text.insert(
+                    tk.END,
+                    "No memories recorded yet. Encourage the town to explore to generate reflections!",
+                )
+            else:
+                for memory in recent:
+                    line = f"Tick {memory.timestamp:04d} — {memory.content}\n"
+                    self.memory_text.insert(tk.END, line)
+        self.memory_text.configure(state=tk.DISABLED)
+
+    def refresh(self) -> None:
+        names = [agent.name for agent in self.simulation.agents]
+        if names != self._known_agents:
+            self._known_agents = names
+            self.selector.configure(values=names)
+            if names and self.agent_var.get() not in names:
+                self.agent_var.set(names[0])
+        self._render_memories()
+
+
 class EventLog(ttk.Frame):
     def __init__(self, master: tk.Widget, *, max_lines: int = 8, **kwargs) -> None:
         super().__init__(master, **kwargs)
@@ -1093,8 +1154,12 @@ class SmallvilleApp(tk.Tk):
         )
         self.canvas.grid(row=0, column=0, rowspan=3, sticky="nsew")
 
-        self.agent_panel = AgentPanel(self, simulation=self.simulation)
-        self.agent_panel.grid(row=0, column=1, sticky="nsew")
+        self.info_tabs = ttk.Notebook(self)
+        self.agent_panel = AgentPanel(self.info_tabs, simulation=self.simulation)
+        self.memory_panel = MemoryPanel(self.info_tabs, simulation=self.simulation)
+        self.info_tabs.add(self.agent_panel, text="Agents")
+        self.info_tabs.add(self.memory_panel, text="Memories")
+        self.info_tabs.grid(row=0, column=1, sticky="nsew")
 
         self.event_log = EventLog(self)
         self.event_log.grid(row=1, column=1, sticky="nsew")
@@ -1155,6 +1220,7 @@ class SmallvilleApp(tk.Tk):
             self.event_log.append(events)
         self._render_agents()
         self.agent_panel.refresh()
+        self.memory_panel.refresh()
         self.controls.clock_var.set(
             f"Day {self.simulation.day:02d} • Hour {self.simulation.hour:02d} — Tick {self.simulation.tick_count}"
         )

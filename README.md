@@ -10,7 +10,7 @@ This repository hosts design collateral for the "Smallville+++" Tkinter life sim
 
 - `docs/Smallville+++_Implementation_Brief.md` — step-by-step plan covering assets, architecture, simulation psychology, safety, testing, and prompts for autonomous coding agents.
 - `Assets/` — CC0 Kenney packs already extracted into folders (`assets/catalog`, `assets/tiles`, `assets/props`, `assets/agents`). The GUI automatically discovers tiles and agents from here.
-- `smallville_gui.py` — Tkinter-based prototype that renders the town map, loads sprites from `Assets/assets`, and animates autonomous residents with liquid neural micro-cores, reflective memory streams, and day-by-day civic evolution beats inspired by recent generative-agent research.
+- `smallville_gui.py` — Tkinter-based prototype that renders the town map, loads sprites from `Assets/assets`, and animates autonomous residents with liquid neural micro-cores, reflective memory streams, and day-by-day civic evolution beats inspired by recent generative-agent research. The built-in GUI now includes a dedicated memory viewer so you can inspect each citizen's generative journal without touching the CLI.
 - `run_smallville.py` — one-click launcher that installs any missing Python dependencies (using `requirements.txt`) before starting the GUI.
 - `requirements.txt` — pinned third-party dependencies for reproducible installation.
 
@@ -24,7 +24,7 @@ This repository hosts design collateral for the "Smallville+++" Tkinter life sim
 
 ## Feature highlights
 
-- **Generative memory stream** — every citizen journals impactful events and periodically reflects, summarising the day with insights drawn from the implementation brief (inspired by [Generative Agents](https://github.com/joonspk-research/generative_agents)).
+- **Generative memory stream** — every citizen journals impactful events and periodically reflects, summarising the day with insights drawn from the implementation brief (inspired by [Generative Agents](https://github.com/joonspk-research/generative_agents)). The GUI memory viewer surfaces these entries so you can follow their evolving narratives live.
 - **Liquid neural modulation** — an eight-neuron liquid time-constant cell per agent gently modulates exploration, speech cadence, and satisfaction gains, borrowing ideas from Liquid AI's [Diffusion Transformer grafting](https://www.liquid.ai/research/exploring-diffusion-transformer-designs-via-grafting) and [liquid neural networks](https://www.liquid.ai/research/convolutional-multi-hybrids-for-edge-devices).
 - **Targeted evolution loop** — every third day the simulation director curates a civic sprint, boosting the leading organiser and nudging the town towards long-term civic impact (in the spirit of Liquid AI's [targeted evolution](https://www.liquid.ai/research/automated-architecture-synthesis-via-targeted-evolution) and OpenEvolve).
 - **Expanded needs model** — residents balance physiological, social, growth, expression, and legacy needs with per-need trait biases and affect-driven planners aligned with the roadmap in `docs/Smallville+++_Implementation_Brief.md`.
