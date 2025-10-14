@@ -1,6 +1,8 @@
 # Little Town of Life
 
-As you can see, this is still an early work in progress.  
+As you can see, this is still an early work in progress!
+If you are interested in helping then maps and Artwork to experiment with would be appreciated!
+
 <img width="1246" height="840" alt="image" src="https://github.com/user-attachments/assets/a2e20f49-7604-44a0-9f75-398097f627f3" />
 
 
